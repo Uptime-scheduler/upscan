@@ -57,11 +57,13 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             archive: tar.gz
+            use_cross: true
 
           # Linux — ARM64 static
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             archive: tar.gz
+            use_cross: true
 
           # Windows — x86_64
           - target: x86_64-pc-windows-msvc
@@ -76,19 +78,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # musl cross-compilation tools
-      - name: Install musl tools (Linux)
-        if: contains(matrix.target, 'musl')
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y musl-tools
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
-            # Use musl-specific toolchain instead of glibc
-            sudo apt-get install -y musl-dev
-            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc" >> "$GITHUB_ENV"
-            echo "CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc" >> "$GITHUB_ENV"
-            echo "AR_aarch64_unknown_linux_musl=aarch64-linux-musl-ar" >> "$GITHUB_ENV"
-          fi
+      # cross handles the full musl toolchain inside Docker — no manual gcc setup.
+      # For macOS and Windows targets, plain cargo is used directly.
+      - name: Install cross (Linux musl targets)
+        if: matrix.use_cross == true
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -102,7 +98,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-
 
-      - name: Build release binary
+      - name: Build release binary (cross — Linux musl)
+        if: matrix.use_cross == true
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build release binary (cargo — macOS / Windows)
+        if: matrix.use_cross != true
         run: cargo build --release --target ${{ matrix.target }}
 
       # ── Package ──────────────────────────────────────────────────────────────
@@ -270,4 +271,3 @@ jobs:
           git diff --cached --quiet && echo "Formula unchanged" && exit 0
           git commit -m "upscan ${{ needs.preflight.outputs.version }}"
           git push
-
