@@ -1,0 +1,10 @@
+upscan is source-available under the Business Source License 1.1.
+
+In plain English:
+- Free to use to scan your own AWS infrastructure
+- Free to modify for your own internal use  
+- Cannot be used in a competing cloud scheduling or cost product
+- Automatically becomes Apache 2.0 on [your change date]
+
+For commercial licensing enquiries: support@uptimescheduler.com
+
