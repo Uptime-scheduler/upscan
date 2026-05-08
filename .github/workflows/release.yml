@@ -213,8 +213,8 @@ jobs:
       - name: Compute Homebrew SHAs
         id: shas
         run: |
-          ARM_SHA=$(grep "aarch64-apple-darwin" artifacts/*.sha256 | awk '{print $1}')
-          X86_SHA=$(grep "x86_64-apple-darwin" artifacts/*.sha256 | awk '{print $1}')
+          ARM_SHA=$(grep -h "aarch64-apple-darwin" artifacts/*.sha256 | awk '{print $1}')
+          X86_SHA=$(grep -h "x86_64-apple-darwin" artifacts/*.sha256 | awk '{print $1}')
           echo "arm_sha=$ARM_SHA" >> "$GITHUB_OUTPUT"
           echo "x86_sha=$X86_SHA" >> "$GITHUB_OUTPUT"
 
