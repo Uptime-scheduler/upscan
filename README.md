@@ -35,7 +35,7 @@ Total potential saving: $128.50/month
 ### Homebrew
 
 ```sh
-brew install uptimescheduler/tap/upscan
+brew install uptime-scheduler/tap/upscan
 ```
 
 ### Direct download
