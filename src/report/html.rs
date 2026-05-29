@@ -2,6 +2,7 @@ use chrono::{Duration, Timelike, Utc};
 use crate::analysis::idle::ResourceAnalysis;
 use crate::discover::ResourceKind;
 use crate::metrics::Datapoint;
+use super::schedule_monthly_off_hours;
 
 /// Colour a heatmap cell relative to the resource's idle threshold.
 /// ratio < 0.3  → red   (clearly idle)
@@ -81,9 +82,15 @@ fn render_heatmap(series: &[Datapoint], threshold: f64) -> String {
     html
 }
 
+fn schedule_saving(a: &ResourceAnalysis) -> Option<f64> {
+    let sched = a.suggested_schedule.as_deref()?;
+    let cost = a.resource.hourly_on_demand_cost?;
+    Some(schedule_monthly_off_hours(sched)? * cost)
+}
+
 pub fn render(analyses: &[ResourceAnalysis], region: &str, days: u32) -> String {
     let now = Utc::now();
-    let total_saving: f64 = analyses.iter().filter_map(|a| a.estimated_monthly_saving).sum();
+    let total_saving: f64 = analyses.iter().filter_map(schedule_saving).sum();
     let has_savings = total_saving > 0.0;
 
     let table_rows: String = analyses.iter().map(|a| {
@@ -94,13 +101,9 @@ pub fn render(analyses: &[ResourceAnalysis], region: &str, days: u32) -> String 
         let name = a.resource.name.as_deref().unwrap_or(a.resource.id.as_str());
         let itype = a.resource.instance_type.as_deref().unwrap_or("—");
         let pattern = a.primary_idle_pattern.as_deref().unwrap_or("—");
-        let saving = a.estimated_monthly_saving.map(|s| format!("${s:.2}")).unwrap_or_else(|| "n/a".to_string());
-        let outside_warn = if a.active_hours_outside_schedule > 0 {
-            format!(" <span class=\"warn-badge\">⚠ {} active hrs outside window</span>",
-                a.active_hours_outside_schedule)
-        } else { String::new() };
+        let saving = schedule_saving(a).map(|s| format!("${s:.2}")).unwrap_or_else(|| "n/a".to_string());
         format!(
-            "<tr><td>{name} <small>({itype})</small></td><td>{kind_str}</td><td>{pattern}</td><td>{:.0}%</td><td>{saving}{outside_warn}</td></tr>",
+            "<tr><td>{name} <small>({itype})</small></td><td>{kind_str}</td><td>{pattern}</td><td>{:.0}%</td><td>{saving}</td></tr>",
             a.idle_percentage
         )
     }).collect::<Vec<_>>().join("\n");
@@ -111,7 +114,7 @@ pub fn render(analyses: &[ResourceAnalysis], region: &str, days: u32) -> String 
 
     let resources_html: String = analyses.iter().map(|a| {
         let name = a.resource.name.as_deref().unwrap_or(a.resource.id.as_str());
-        let saving = a.estimated_monthly_saving.map(|s| format!("${s:.2}/mo")).unwrap_or_else(|| "n/a".to_string());
+        let saving = schedule_saving(a).map(|s| format!("${s:.2}/mo")).unwrap_or_else(|| "n/a".to_string());
         let pattern = a.primary_idle_pattern.as_deref().unwrap_or("—");
         let schedule = a.suggested_schedule.as_deref().unwrap_or("—");
         let heatmap = render_heatmap(&a.utilisation_series, a.idle_threshold);
